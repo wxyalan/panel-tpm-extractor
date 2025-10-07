@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Panel TPM Extractor (client‑side)</title>
+  <style>
+    :root { --bg:#0b1020; --card:#121a34; --muted:#9aa4bf; --text:#e9eefb; --accent:#6ea8fe; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; background: var(--bg); color: var(--text); }
+    .container { max-width: 1100px; margin: 36px auto; padding: 0 16px; }
+    h1 { font-weight: 700; letter-spacing: .2px; margin: 0 0 16px; }
+    p { color: var(--muted); margin: 6px 0 18px; }
+    .card { background: var(--card); border: 1px solid rgba(255,255,255,.06); padding: 16px; border-radius: 16px; box-shadow: 0 6px 24px rgba(0,0,0,.25); }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    label { display:block; font-size: 14px; color: var(--muted); margin-bottom: 6px; }
+    input[type=file], input[type=number], input[type=text] { width:100%; padding: 10px 12px; border-radius: 12px; background: #0d142b; color: var(--text); border: 1px solid rgba(255,255,255,.08); }
+    input[type=checkbox] { transform: translateY(1px); }
+    .controls { display:flex; flex-wrap: wrap; gap: 12px; align-items:center; margin: 12px 0 0; }
+    .btn { appearance: none; border: 1px solid rgba(255,255,255,.1); background: #0f1731; color: var(--text); padding: 10px 14px; border-radius: 12px; cursor: pointer; font-weight: 600; }
+    .btn:hover { border-color: rgba(255,255,255,.25); }
+    .btn.primary { background: linear-gradient(180deg,#2a74ff,#2854ff); border-color: transparent; }
+    .stack { display:flex; gap:10px; align-items:center; }
+    #status { margin-top: 14px; font-size: 13px; color: var(--muted); white-space: pre-wrap; }
+    #download { margin-top: 14px; }
+    a.dl { display:inline-block; margin-right: 8px; color: #0ee8ac; text-decoration: none; font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+    th, td { border-bottom: 1px solid rgba(255,255,255,.06); text-align: left; padding: 8px 10px; }
+    th { position: sticky; top: 0; background: #0e1630; }
+    .muted { color: var(--muted); }
+    .hint { font-size:12px; color: var(--muted); margin-top: 6px; }
+    .note { margin-top: 8px; font-size: 12px; color: var(--muted); }
+    .pill { display:inline-block; padding: 2px 8px; border-radius: 999px; background: #0d2a4f; color:#9fd0ff; font-size: 11px; margin-left:6px; }
+    @media (max-width: 900px){ .row, .row3 { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Panel TPM Extractor <span class="pill">client‑side</span></h1>
+    <p>把 <strong>panel_list.tsv</strong>（首列 <code>ID</code>，顺序即输出顺序）和一个或多个 <strong>RNASEQC *.gene_tpm.gct</strong> 拖进来/上传，点击“生成矩阵”。
+       本页面完全在浏览器本地运行，不会上传任何文件。</p>
+
+    <div class="card">
+      <div class="row">
+        <div>
+          <label>Panel 列表文件（<code>panel_list.tsv</code>，首列名必须为 <code>ID</code>）</label>
+          <input id="panelFile" type="file" accept=".tsv,.txt" />
+          <div class="hint">支持制表符或空白分隔；若第一行是 <code>ID</code> 作为表头会自动忽略。</div>
+        </div>
+        <div>
+          <label>GCT 文件（可多选上传 <code>*.gene_tpm.gct</code>）</label>
+          <input id="gctFiles" type="file" multiple accept=".gct,.tsv,.txt" />
+          <div class="hint">注意：浏览器无法读取你机器上的路径清单（<code>sample_tpm_list.tsv</code>）所指向的文件，需直接上传 GCT 文件本身。</div>
+        </div>
+      </div>
+
+      <div class="row3" style="margin-top:12px;">
+        <div class="stack">
+          <input id="stripVersion" type="checkbox" />
+          <label for="stripVersion" style="margin:0;">匹配时去掉 Ensembl 版本后缀（如 <code>.17</code>）</label>
+        </div>
+        <div>
+          <label>小数位（0–12）</label>
+          <input id="digits" type="number" min="0" max="12" value="6" />
+        </div>
+        <div>
+          <label>输出文件名</label>
+          <input id="outName" type="text" value="panel_TPM_matrix.tsv" />
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="runBtn" class="btn primary">生成矩阵</button>
+        <button id="clearBtn" class="btn">清空</button>
+      </div>
+
+      <div class="note">GCT 解析规则：严格跳过前两行头（<code>#1.2</code> 与行列数），从第三行表头开始（<code>Name</code>、<code>Description</code>、样本列）。若某 GCT 含多样本列，将全部并入。</div>
+    </div>
+
+    <div id="status"></div>
+    <div id="download"></div>
+    <div id="preview"></div>
+  </div>
+
+  <script>
+  // 读取文件为文本
+  function readFileAsText(file){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(file);
+    });
+  }
+
+  function dedupeName(name, used){
+    if(!used.has(name)){ used.add(name); return name; }
+    let i = 2;
+    while(used.has(`${name} (${i})`)) i++;
+    const n = `${name} (${i})`;
+    used.add(n);
+    return n;
+  }
+
+  function stripVersionIf(s, on){
+    if(!on) return s;
+    return s.replace(/\.\d+$/, "");
+  }
+
+  // 解析 panel：返回 {panelIDsOrig: [...], panelKeys: [...]}，保持原始顺序
+  function parsePanel(text, stripVersion){
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+    if(lines.length === 0) throw new Error("panel 文件为空");
+    const ids = [];
+    for(let i=0;i<lines.length;i++){
+      const parts = lines[i].split(/\t|\s+/);
+      if(i === 0 && parts[0].toUpperCase() === 'ID') continue; // 跳过表头
+      ids.push(parts[0]);
+    }
+    if(ids.length === 0) throw new Error("panel 未找到任何 ID（检查首列与表头）");
+    const keys = ids.map(x => stripVersionIf(String(x), stripVersion));
+    return { panelIDsOrig: ids, panelKeys: keys };
+  }
+
+  // 解析 GCT：返回 { columns: [{ name, map } , ...] }
+  function parseGCT(text, stripVersion){
+    const rawLines = text.split(/\r?\n/);
+    if(rawLines.length < 3) throw new Error("GCT 行数不足（应至少包含头两行与表头）");
+    const lines = rawLines.slice(2).filter(l => l.trim().length > 0);
+    if(lines.length < 2) throw new Error("GCT 数据不足（缺少表头或数据行）");
+
+    const header = lines[0].split('\t');
+    if(header.length < 3 || header[0] !== 'Name' || header[1] !== 'Description'){
+      console.warn('GCT 表头非常规，仍尝试解析：', header);
+    }
+    const sampleNamesRaw = header.slice(2);
+    const sampleNameSet = new Set();
+    const sampleNames = sampleNamesRaw.map(n => dedupeName(String(n).trim() || 'Sample', sampleNameSet));
+
+    // 为每个样本列准备一个 Map
+    const maps = sampleNames.map(() => new Map());
+
+    for(let i=1;i<lines.length;i++){
+      const cols = lines[i].split('\t');
+      if(cols.length < 3) continue;
+      const geneName = String(cols[0]).trim();
+      const key = stripVersionIf(geneName, stripVersion);
+      for(let j=2;j<cols.length;j++){
+        let v = parseFloat(cols[j]);
+        if(Number.isNaN(v)) v = 0.0;
+        maps[j-2].set(key, v);
+      }
+    }
+
+    const columns = sampleNames.map((name, idx) => ({ name, map: maps[idx] }));
+    return { columns };
+  }
+
+  // 生成 TSV 字符串
+  function buildTSV(panelIDsOrig, panelKeys, columns, digits){
+    const header = ['ID', ...columns.map(c => c.name)].join('\t');
+    const lines = [header];
+    const d = Math.max(0, Math.min(12, Number(digits) || 6));
+
+    for(let i=0;i<panelIDsOrig.length;i++){
+      const orig = panelIDsOrig[i];
+      const key = panelKeys[i];
+      const vals = columns.map(c => {
+        const v = c.map.get(key);
+        const num = (v == null ? 0 : v);
+        return d >= 0 ? Number(num).toFixed(d) : String(num);
+      });
+      lines.push([orig, ...vals].join('\t'));
+    }
+    return lines.join('\n');
+  }
+
+  function renderPreview(tsv, maxRows=20, maxCols=8){
+    const container = document.getElementById('preview');
+    container.innerHTML = '';
+    const lines = tsv.split(/\r?\n/).filter(l => l.length > 0);
+    const header = lines[0].split('\t');
+    const body = lines.slice(1, 1 + maxRows).map(l => l.split('\t'));
+
+    const table = document.createElement('table');
+    const thead = document.createElement('thead');
+    const trh = document.createElement('tr');
+
+    const showCols = Math.min(header.length, maxCols);
+    for(let c=0;c<showCols;c++){
+      const th = document.createElement('th');
+      th.textContent = header[c];
+      trh.appendChild(th);
+    }
+    thead.appendChild(trh);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    body.forEach(row => {
+      const tr = document.createElement('tr');
+      for(let c=0;c<showCols;c++){
+        const td = document.createElement('td');
+        td.textContent = row[c] ?? '';
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+
+    const note = document.createElement('div');
+    note.className = 'muted';
+    note.style.marginTop = '8px';
+    note.textContent = `仅预览前 ${Math.min(body.length, maxRows)} 行 / 前 ${showCols} 列。`;
+
+    container.appendChild(table);
+    container.appendChild(note);
+  }
+
+  function setStatus(msg){
+    document.getElementById('status').textContent = msg;
+  }
+
+  function setDownload(tsv, name){
+    const dlDiv = document.getElementById('download');
+    dlDiv.innerHTML = '';
+    const blob = new Blob([tsv], { type: 'text/tab-separated-values;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name || 'panel_TPM_matrix.tsv'; a.textContent = '下载结果 TSV';
+    a.className = 'dl';
+    dlDiv.appendChild(a);
+  }
+
+  // 事件绑定
+  document.getElementById('runBtn').addEventListener('click', async () => {
+    try{
+      const panelFile = document.getElementById('panelFile').files[0];
+      const gctList = Array.from(document.getElementById('gctFiles').files || []);
+      const stripVersion = document.getElementById('stripVersion').checked;
+      const digits = Number(document.getElementById('digits').value || 6);
+      const outName = (document.getElementById('outName').value || 'panel_TPM_matrix.tsv').trim();
+
+      if(!panelFile){ setStatus('请先选择 panel_list.tsv'); return; }
+      if(gctList.length === 0){ setStatus('请至少选择一个 GCT 文件'); return; }
+
+      setStatus('读取 panel 与 GCT 文件中…');
+
+      const panelText = await readFileAsText(panelFile);
+      const { panelIDsOrig, panelKeys } = parsePanel(panelText, stripVersion);
+
+      // 累积所有样本列
+      const columns = [];
+      for(let i=0;i<gctList.length;i++){
+        setStatus(`解析 GCT (${i+1}/${gctList.length}): ${gctList[i].name}`);
+        const txt = await readFileAsText(gctList[i]);
+        const got = parseGCT(txt, stripVersion);
+        columns.push(...got.columns);
+      }
+      if(columns.length === 0){ setStatus('未从任何 GCT 中解析到样本列。'); return; }
+
+      setStatus(`构建矩阵… 面板基因数: ${panelIDsOrig.length}；样本列数: ${columns.length}`);
+
+      const tsv = buildTSV(panelIDsOrig, panelKeys, columns, digits);
+      setDownload(tsv, outName);
+      renderPreview(tsv, 20, Math.min(8, columns.length + 1));
+      setStatus(`完成。行数: ${panelIDsOrig.length}；列数: ${columns.length + 1}（含 ID）。`);
+    }catch(err){
+      console.error(err);
+      setStatus('发生错误：' + (err && err.message ? err.message : String(err)));
+    }
+  });
+
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    document.getElementById('panelFile').value = '';
+    document.getElementById('gctFiles').value = '';
+    document.getElementById('status').textContent = '';
+    document.getElementById('download').innerHTML = '';
+    document.getElementById('preview').innerHTML = '';
+  });
+  </script>
+</body>
+</html>
