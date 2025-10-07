@@ -1,16 +1,17 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Panel TPM Extractor (client‑side)</title>
+  <title>Panel TPM Extractor (client‑side, multi‑panel / multi‑GCT)</title>
   <style>
-    :root { --bg:#0b1020; --card:#121a34; --muted:#9aa4bf; --text:#e9eefb; --accent:#6ea8fe; }
+    :root { --bg:#0b1020; --card:#121a34; --muted:#9aa4bf; --text:#e9eefb; --accent:#6ea8fe; --good:#0ee8ac; --warn:#ffcc66; }
     * { box-sizing: border-box; }
-    body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; background: var(--bg); color: var(--text); }
-    .container { max-width: 1100px; margin: 36px auto; padding: 0 16px; }
-    h1 { font-weight: 700; letter-spacing: .2px; margin: 0 0 16px; }
-    p { color: var(--muted); margin: 6px 0 18px; }
+    body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans"; background: var(--bg); color: var(--text); }
+    .container { max-width: 1200px; margin: 36px auto; padding: 0 16px; }
+    h1 { font-weight: 800; letter-spacing: .2px; margin: 0 0 10px; }
+    h2 { margin: 24px 0 8px; }
+    p { color: var(--muted); margin: 6px 0 16px; }
     .card { background: var(--card); border: 1px solid rgba(255,255,255,.06); padding: 16px; border-radius: 16px; box-shadow: 0 6px 24px rgba(0,0,0,.25); }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
@@ -18,265 +19,368 @@
     input[type=file], input[type=number], input[type=text] { width:100%; padding: 10px 12px; border-radius: 12px; background: #0d142b; color: var(--text); border: 1px solid rgba(255,255,255,.08); }
     input[type=checkbox] { transform: translateY(1px); }
     .controls { display:flex; flex-wrap: wrap; gap: 12px; align-items:center; margin: 12px 0 0; }
-    .btn { appearance: none; border: 1px solid rgba(255,255,255,.1); background: #0f1731; color: var(--text); padding: 10px 14px; border-radius: 12px; cursor: pointer; font-weight: 600; }
+    .btn { appearance: none; border: 1px solid rgba(255,255,255,.1); background: #0f1731; color: var(--text); padding: 10px 14px; border-radius: 12px; cursor: pointer; font-weight: 700; }
     .btn:hover { border-color: rgba(255,255,255,.25); }
     .btn.primary { background: linear-gradient(180deg,#2a74ff,#2854ff); border-color: transparent; }
+    .btn.mini { padding: 4px 8px; font-size: 12px; border-radius: 8px; }
     .stack { display:flex; gap:10px; align-items:center; }
-    #status { margin-top: 14px; font-size: 13px; color: var(--muted); white-space: pre-wrap; }
-    #download { margin-top: 14px; }
-    a.dl { display:inline-block; margin-right: 8px; color: #0ee8ac; text-decoration: none; font-weight: 700; }
-    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
-    th, td { border-bottom: 1px solid rgba(255,255,255,.06); text-align: left; padding: 8px 10px; }
-    th { position: sticky; top: 0; background: #0e1630; }
     .muted { color: var(--muted); }
     .hint { font-size:12px; color: var(--muted); margin-top: 6px; }
-    .note { margin-top: 8px; font-size: 12px; color: var(--muted); }
     .pill { display:inline-block; padding: 2px 8px; border-radius: 999px; background: #0d2a4f; color:#9fd0ff; font-size: 11px; margin-left:6px; }
-    @media (max-width: 900px){ .row, .row3 { grid-template-columns: 1fr; } }
+    .list { margin-top: 8px; font-size: 13px; line-height: 1.35; }
+    .list code { color:#cfe3ff; }
+    .warn { color: var(--warn); }
+    .ok { color: var(--good); }
+    .output { margin-top: 18px; }
+    .out-card { margin-top: 14px; padding: 14px; border-radius: 14px; background: #0e1630; border:1px solid rgba(255,255,255,.06); }
+    .out-head { display:flex; flex-wrap: wrap; gap:10px; align-items:center; justify-content: space-between; }
+    .out-actions { display:flex; flex-wrap: wrap; gap:10px; align-items:center; }
+    a.dl { display:inline-block; color: var(--good); text-decoration: none; font-weight: 800; }
+    .warnbox { background: #2a2005; border: 1px solid #7b5d00; color: #ffd78a; padding: 8px 10px; border-radius: 10px; font-size: 12px; margin-top: 8px; }
+    details summary { cursor: pointer; }
+    /* tables */
+    .table-wrap { overflow: auto; max-height: 520px; border:1px solid rgba(255,255,255,.06); border-radius: 10px; margin-top: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border: 1px solid rgba(255,255,255,.1); text-align: left; padding: 8px 10px; white-space: nowrap; }
+    th { position: sticky; top: 0; background: #0e1630; z-index: 1; }
+    .sample-table { margin-top: 8px; }
+    .kvlist { display:flex; flex-direction: column; gap:8px; margin-top:8px; }
+    .kvitem { background:#0e1630; border:1px solid rgba(255,255,255,.08); padding:8px 10px; border-radius:8px; }
+    @media (max-width: 980px){ .row, .row3 { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Panel TPM Extractor <span class="pill">client‑side</span></h1>
-    <p>把 <strong>panel_list.tsv</strong>（首列 <code>ID</code>，顺序即输出顺序）和一个或多个 <strong>RNASEQC *.gene_tpm.gct</strong> 拖进来/上传，点击“生成矩阵”。
-       本页面完全在浏览器本地运行，不会上传任何文件。</p>
+    <h1>Panel TPM Extractor <span class="pill">Client‑side / Multi‑panel / Multi‑GCT</span></h1>
+    <p>Upload one or more <strong>panel_list.tsv</strong> files (first column header must be <code>ID</code>) and one or more <strong>RNASEQC <code>*.gene_tpm.gct</code></strong> files. Click <em>Build matrix</em> to create a TSV per panel. Everything runs locally in your browser; nothing is uploaded.</p>
 
     <div class="card">
       <div class="row">
         <div>
-          <label>Panel 列表文件（<code>panel_list.tsv</code>，首列名必须为 <code>ID</code>）</label>
-          <input id="panelFile" type="file" accept=".tsv,.txt" />
-          <div class="hint">支持制表符或空白分隔；若第一行是 <code>ID</code> 作为表头会自动忽略。</div>
+          <label>Panel list files (multi‑select & additive; first column header must be <code>ID</code>)</label>
+          <input id="panelFiles" type="file" multiple accept=".tsv,.txt" />
+          <div class="hint">You can add files incrementally. Previously selected files remain. Use <em>Remove</em> to delete a specific file.</div>
+          <div id="panelList" class="list muted"></div>
         </div>
         <div>
-          <label>GCT 文件（可多选上传 <code>*.gene_tpm.gct</code>）</label>
+          <label>GCT files (multi‑select & additive; <code>*.gene_tpm.gct</code>)</label>
           <input id="gctFiles" type="file" multiple accept=".gct,.tsv,.txt" />
-          <div class="hint">注意：浏览器无法读取你机器上的路径清单（<code>sample_tpm_list.tsv</code>）所指向的文件，需直接上传 GCT 文件本身。</div>
+          <div class="hint">Browsers cannot read server path lists; please select the actual GCT files.</div>
+          <div id="gctList" class="list muted"></div>
         </div>
       </div>
 
       <div class="row3" style="margin-top:12px;">
         <div class="stack">
           <input id="stripVersion" type="checkbox" />
-          <label for="stripVersion" style="margin:0;">匹配时去掉 Ensembl 版本后缀（如 <code>.17</code>）</label>
+          <label for="stripVersion" style="margin:0;">Strip Ensembl version suffix when matching (e.g., <code>.17</code>)</label>
         </div>
         <div>
-          <label>小数位（0–12）</label>
+          <label>Decimal places (0–12)</label>
           <input id="digits" type="number" min="0" max="12" value="6" />
         </div>
         <div>
-          <label>输出文件名</label>
-          <input id="outName" type="text" value="panel_TPM_matrix.tsv" />
+          <label>Timestamp format (for output filenames)</label>
+          <input id="tsFmt" type="text" value="YYYYMMDD_HHmmss" />
         </div>
       </div>
 
       <div class="controls">
-        <button id="runBtn" class="btn primary">生成矩阵</button>
-        <button id="clearBtn" class="btn">清空</button>
+        <button id="runBtn" class="btn primary">Build matrix</button>
+        <button id="clearBtn" class="btn">Clear</button>
       </div>
 
-      <div class="note">GCT 解析规则：严格跳过前两行头（<code>#1.2</code> 与行列数），从第三行表头开始（<code>Name</code>、<code>Description</code>、样本列）。若某 GCT 含多样本列，将全部并入。</div>
+      <div class="hint" style="margin-top:8px;">
+        <strong>Column name source:</strong> base filename of each GCT (without <code>.gene_tpm.gct</code>). If a GCT has multiple sample columns, names are <code>base_originalHeader</code>. Duplicates are disambiguated with <code>__2</code>, <code>__3</code>, …<br/>
+        <strong>Output filename pattern:</strong> <code>&lt;panel_stem&gt;_TPM_matrix_&lt;timestamp&gt;.tsv</code>, where <code>panel_stem</code> is the panel filename without extension and <code>timestamp</code> follows the format above (default <code>YYYYMMDD_HHmmss</code>).
+      </div>
     </div>
 
-    <div id="status"></div>
-    <div id="download"></div>
-    <div id="preview"></div>
+    <div id="status" class="muted" style="margin-top:12px;"></div>
+
+    <div class="output" id="output"></div>
+
+    <h2>Examples (tabular)</h2>
+    <div class="card">
+      <p><strong>Panel list</strong> (<code>panel_list.tsv</code>):</p>
+      <div class="table-wrap sample-table">
+        <table>
+          <thead><tr><th>ID</th></tr></thead>
+          <tbody>
+            <tr><td>ENSG00000001626.17</td></tr>
+            <tr><td>ENSG00000004864.14</td></tr>
+            <tr><td>ENSG00000005471.19</td></tr>
+            <tr><td>ENSG00000011143.19</td></tr>
+            <tr><td>ENSG00000012504.15</td></tr>
+            <tr><td>ENSG00000023839.12</td></tr>
+            <tr><td>ENSG00000034693.15</td></tr>
+            <tr><td>ENSG00000048342.18</td></tr>
+            <tr><td>ENSG00000073734.10</td></tr>
+            <tr><td>ENSG00000081923.15</td></tr>
+            <tr><td>ENSG00000083807.10</td></tr>
+            <tr><td>ENSG00000099377.14</td></tr>
+            <tr><td>ENSG00000100652.5</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p style="margin-top:14px;"><strong>gene_tpm.gct</strong> (first two lines are GCT headers; then the tabular header + data):</p>
+      <div class="kvlist">
+        <div class="kvitem"><strong>Line 1</strong><br/><code>#1.2</code></div>
+        <div class="kvitem"><strong>Line 2</strong><br/><code>59033\t1</code></div>
+      </div>
+      <div class="table-wrap sample-table">
+        <table>
+          <thead>
+            <tr><th>Name</th><th>Description</th><th>73c1b787-67a0-48dc-ab2a-e57875f6af89</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>ENSG00000223972.5</td><td>DDX11L1</td><td>0.000000</td></tr>
+            <tr><td>ENSG00000227232.5</td><td>WASH7P</td><td>0.422318</td></tr>
+            <tr><td>ENSG00000278267.1</td><td>MIR6859-1</td><td>0.000000</td></tr>
+            <tr><td>ENSG00000243485.5</td><td>MIR1302-2HG</td><td>0.000000</td></tr>
+            <tr><td>ENSG00000237613.2</td><td>FAM138A</td><td>0.000000</td></tr>
+            <tr><td>ENSG00000268020.3</td><td>OR4G4P</td><td>0.000000</td></tr>
+            <tr><td>ENSG00000240361.2</td><td>OR4G11P</td><td>0.000000</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p style="margin-top:14px;"><strong>Output TSV</strong>:</p>
+      <div class="table-wrap sample-table">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>BG1706-USR1-RU1</th><th>BG1702-USR1-RU1</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>ENSG00000164199.18</td><td>0.049529</td><td>0.045304</td></tr>
+            <tr><td>ENSG00000135541.22</td><td>2.190378</td><td>1.803849</td></tr>
+            <tr><td>ENSG00000129221.16</td><td>0.018357</td><td>0.035872</td></tr>
+            <tr><td>ENSG00000116127.20</td><td>3.314783</td><td>5.474677</td></tr>
+            <tr><td>ENSG00000165138.18</td><td>15.345400</td><td>16.673557</td></tr>
+            <tr><td>ENSG00000169379.17</td><td>13.060799</td><td>8.657189</td></tr>
+            <tr><td>ENSG00000113966.10</td><td>4.247006</td><td>5.092146</td></tr>
+            <tr><td>ENSG00000135931.19</td><td>9.276770</td><td>14.365840</td></tr>
+            <tr><td>ENSG00000130638.17</td><td>154.715252</td><td>143.131950</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <script>
-  // 读取文件为文本
+  // ====== Utilities ======
   function readFileAsText(file){
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(reader.error);
-      reader.readAsText(file);
+    return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(r.error); r.readAsText(file); });
+  }
+  function fmtTS(fmt){
+    const d = new Date();
+    const pad = (n, w=2) => String(n).padStart(w,'0');
+    return fmt
+      .replace('YYYY', d.getFullYear())
+      .replace('MM', pad(d.getMonth()+1))
+      .replace('DD', pad(d.getDate()))
+      .replace('HH', pad(d.getHours()))
+      .replace('mm', pad(d.getMinutes()))
+      .replace('ss', pad(d.getSeconds()));
+  }
+  function stripVersionIf(s, on){ return on ? String(s).replace(/\.\d+$/, '') : String(s); }
+  function setStatus(msg){ document.getElementById('status').textContent = msg; }
+
+  const fileKey = f => `${f.name}__${f.size}__${f.lastModified}`;
+  function dedupAppend(targetArr, newLikeList){
+    const seen = new Set(targetArr.map(fileKey));
+    Array.from(newLikeList).forEach(f => { const k = fileKey(f); if(!seen.has(k)){ targetArr.push(f); seen.add(k); } });
+    return targetArr;
+  }
+  function renderList(container, filesArr, type){
+    if(!filesArr || filesArr.length===0){ container.innerHTML=''; return; }
+    const ul = document.createElement('ul'); ul.style.margin='6px 0 0'; ul.style.paddingLeft='18px';
+    filesArr.forEach(f => {
+      const li=document.createElement('li');
+      const k = fileKey(f);
+      li.innerHTML = `<code>${f.name}</code> <span class="muted">(${f.size.toLocaleString()} bytes)</span> `;
+      const btn = document.createElement('button'); btn.className='btn mini remove-file'; btn.textContent='Remove'; btn.dataset.type=type; btn.dataset.key=k; btn.addEventListener('click', ()=> removeFile(type, k));
+      li.appendChild(btn); ul.appendChild(li);
     });
+    container.innerHTML=''; container.appendChild(ul);
+  }
+  function removeFile(type, key){
+    const arr = (type==='panel') ? panelFilesArr : gctFilesArr;
+    const idx = arr.findIndex(f => fileKey(f)===key);
+    if(idx>=0){ arr.splice(idx,1); }
+    updateFileLists();
+  }
+  function updateFileLists(){
+    renderList(document.getElementById('panelList'), panelFilesArr, 'panel');
+    renderList(document.getElementById('gctList'), gctFilesArr, 'gct');
   }
 
-  function dedupeName(name, used){
-    if(!used.has(name)){ used.add(name); return name; }
-    let i = 2;
-    while(used.has(`${name} (${i})`)) i++;
-    const n = `${name} (${i})`;
-    used.add(n);
-    return n;
-  }
-
-  function stripVersionIf(s, on){
-    if(!on) return s;
-    return s.replace(/\.\d+$/, "");
-  }
-
-  // 解析 panel：返回 {panelIDsOrig: [...], panelKeys: [...]}，保持原始顺序
-  function parsePanel(text, stripVersion){
-    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
-    if(lines.length === 0) throw new Error("panel 文件为空");
-    const ids = [];
-    for(let i=0;i<lines.length;i++){
-      const parts = lines[i].split(/\t|\s+/);
-      if(i === 0 && parts[0].toUpperCase() === 'ID') continue; // 跳过表头
-      ids.push(parts[0]);
-    }
-    if(ids.length === 0) throw new Error("panel 未找到任何 ID（检查首列与表头）");
-    const keys = ids.map(x => stripVersionIf(String(x), stripVersion));
+  // ====== Parse panel (keep order) ======
+  function parsePanel(text, stripVer){
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length>0);
+    if(lines.length===0) throw new Error('Panel file is empty');
+    const ids=[]; for(let i=0;i<lines.length;i++){ const parts = lines[i].split(/\t|\s+/); if(i===0 && parts[0].toUpperCase()==='ID') continue; ids.push(parts[0]); }
+    if(ids.length===0) throw new Error('No IDs found in panel (check header and first column)');
+    const keys = ids.map(x => stripVersionIf(x, stripVer));
     return { panelIDsOrig: ids, panelKeys: keys };
   }
 
-  // 解析 GCT：返回 { columns: [{ name, map } , ...] }
-  function parseGCT(text, stripVersion){
-    const rawLines = text.split(/\r?\n/);
-    if(rawLines.length < 3) throw new Error("GCT 行数不足（应至少包含头两行与表头）");
-    const lines = rawLines.slice(2).filter(l => l.trim().length > 0);
-    if(lines.length < 2) throw new Error("GCT 数据不足（缺少表头或数据行）");
+  // ====== Parse GCT into sample-column maps ======
+  function deriveBaseFromFilename(name){
+    const m = name.match(/^(.*)\.gene_tpm\.gct$/i); if(m) return m[1];
+    const i = name.indexOf('.'); return i>0 ? name.slice(0,i) : name;
+  }
+  function parseGCTToSeries(text, fileName, stripVer, usedNames){
+    const raw = text.split(/\r?\n/);
+    if(raw.length<3) throw new Error('GCT has insufficient lines (need 2 header lines + table)');
+    const body = raw.slice(2).filter(l => l.trim().length>0);
+    if(body.length<2) throw new Error('GCT table is missing header or rows');
+    const header = body[0].split('\t');
+    const sampleCols = header.slice(2);
+    const base = deriveBaseFromFilename(fileName);
 
-    const header = lines[0].split('\t');
-    if(header.length < 3 || header[0] !== 'Name' || header[1] !== 'Description'){
-      console.warn('GCT 表头非常规，仍尝试解析：', header);
-    }
-    const sampleNamesRaw = header.slice(2);
-    const sampleNameSet = new Set();
-    const sampleNames = sampleNamesRaw.map(n => dedupeName(String(n).trim() || 'Sample', sampleNameSet));
+    const proposed = sampleCols.length===1 ? [base] : sampleCols.map(sc => `${base}_${sc}`);
+    const names = proposed.map(n => { if(!usedNames.has(n)){ usedNames.add(n); return n; } let k=2; while(usedNames.has(`${n}__${k}`)) k++; const nn=`${n}__${k}`; usedNames.add(nn); return nn; });
 
-    // 为每个样本列准备一个 Map
-    const maps = sampleNames.map(() => new Map());
-
-    for(let i=1;i<lines.length;i++){
-      const cols = lines[i].split('\t');
-      if(cols.length < 3) continue;
-      const geneName = String(cols[0]).trim();
-      const key = stripVersionIf(geneName, stripVersion);
+    const maps = names.map(() => new Map());
+    for(let i=1;i<body.length;i++){
+      const cols = body[i].split('\t'); if(cols.length<3) continue;
+      const key = stripVersionIf(cols[0].trim(), stripVer);
       for(let j=2;j<cols.length;j++){
-        let v = parseFloat(cols[j]);
-        if(Number.isNaN(v)) v = 0.0;
+        let v = parseFloat(cols[j]); if(Number.isNaN(v)) v = 0.0;
         maps[j-2].set(key, v);
       }
     }
-
-    const columns = sampleNames.map((name, idx) => ({ name, map: maps[idx] }));
-    return { columns };
+    return names.map((n, idx) => ({ name: n, map: maps[idx] }));
   }
 
-  // 生成 TSV 字符串
+  // ====== Build TSV & render ======
   function buildTSV(panelIDsOrig, panelKeys, columns, digits){
+    const d = Math.max(0, Math.min(12, Number(digits)||6));
     const header = ['ID', ...columns.map(c => c.name)].join('\t');
-    const lines = [header];
-    const d = Math.max(0, Math.min(12, Number(digits) || 6));
-
+    const lines=[header];
     for(let i=0;i<panelIDsOrig.length;i++){
-      const orig = panelIDsOrig[i];
       const key = panelKeys[i];
-      const vals = columns.map(c => {
-        const v = c.map.get(key);
-        const num = (v == null ? 0 : v);
-        return d >= 0 ? Number(num).toFixed(d) : String(num);
-      });
-      lines.push([orig, ...vals].join('\t'));
+      const rowVals = columns.map(c => { const v = c.map.get(key); const num = v==null?0:v; return Number(num).toFixed(d); });
+      lines.push([panelIDsOrig[i], ...rowVals].join('\t'));
     }
     return lines.join('\n');
   }
-
-  function renderPreview(tsv, maxRows=20, maxCols=8){
-    const container = document.getElementById('preview');
-    container.innerHTML = '';
-    const lines = tsv.split(/\r?\n/).filter(l => l.length > 0);
+  function renderTable(tsv){
+    const lines = tsv.split(/\r?\n/).filter(l=>l.length>0);
     const header = lines[0].split('\t');
-    const body = lines.slice(1, 1 + maxRows).map(l => l.split('\t'));
-
+    const rows = lines.slice(1).map(l => l.split('\t'));
+    const wrap = document.createElement('div'); wrap.className='table-wrap';
     const table = document.createElement('table');
-    const thead = document.createElement('thead');
-    const trh = document.createElement('tr');
-
-    const showCols = Math.min(header.length, maxCols);
-    for(let c=0;c<showCols;c++){
-      const th = document.createElement('th');
-      th.textContent = header[c];
-      trh.appendChild(th);
-    }
-    thead.appendChild(trh);
-    table.appendChild(thead);
-
+    const thead = document.createElement('thead'); const trh = document.createElement('tr');
+    header.forEach(h => { const th=document.createElement('th'); th.textContent=h; trh.appendChild(th); });
+    thead.appendChild(trh); table.appendChild(thead);
     const tbody = document.createElement('tbody');
-    body.forEach(row => {
-      const tr = document.createElement('tr');
-      for(let c=0;c<showCols;c++){
-        const td = document.createElement('td');
-        td.textContent = row[c] ?? '';
-        tr.appendChild(td);
-      }
-      tbody.appendChild(tr);
-    });
-    table.appendChild(tbody);
-
-    const note = document.createElement('div');
-    note.className = 'muted';
-    note.style.marginTop = '8px';
-    note.textContent = `仅预览前 ${Math.min(body.length, maxRows)} 行 / 前 ${showCols} 列。`;
-
-    container.appendChild(table);
-    container.appendChild(note);
+    rows.forEach(r => { const tr=document.createElement('tr'); for(let i=0;i<header.length;i++){ const td=document.createElement('td'); td.textContent = r[i] ?? ''; tr.appendChild(td);} tbody.appendChild(tr); });
+    table.appendChild(tbody); wrap.appendChild(table); return wrap;
   }
-
-  function setStatus(msg){
-    document.getElementById('status').textContent = msg;
-  }
-
-  function setDownload(tsv, name){
-    const dlDiv = document.getElementById('download');
-    dlDiv.innerHTML = '';
+  function makeDownload(tsv, fileName){
     const blob = new Blob([tsv], { type: 'text/tab-separated-values;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = name || 'panel_TPM_matrix.tsv'; a.textContent = '下载结果 TSV';
-    a.className = 'dl';
-    dlDiv.appendChild(a);
+    const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=fileName; a.textContent='Download TSV'; a.className='dl'; return a;
+  }
+  async function copyNoID(tsv){
+    const lines = tsv.split(/\r?\n/).filter(l => l.length>0);
+    const kept = lines.map(line=> line.split('\t').slice(1).join('\t')).join('\n');
+    try{ await navigator.clipboard.writeText(kept); alert('Copied: all columns except the first (gene)'); }
+    catch(e){ const ta=document.createElement('textarea'); ta.style.position='fixed'; ta.style.opacity='0'; ta.value=kept; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); alert('Copied (fallback mode)'); }
+  }
+  async function copyAll(tsv){
+    try{ await navigator.clipboard.writeText(tsv); alert('Copied: full table'); }
+    catch(e){ const ta=document.createElement('textarea'); ta.style.position='fixed'; ta.style.opacity='0'; ta.value=tsv; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); alert('Copied full table (fallback mode)'); }
   }
 
-  // 事件绑定
-  document.getElementById('runBtn').addEventListener('click', async () => {
-    try{
-      const panelFile = document.getElementById('panelFile').files[0];
-      const gctList = Array.from(document.getElementById('gctFiles').files || []);
-      const stripVersion = document.getElementById('stripVersion').checked;
-      const digits = Number(document.getElementById('digits').value || 6);
-      const outName = (document.getElementById('outName').value || 'panel_TPM_matrix.tsv').trim();
+  // ====== File selection (additive with remove) ======
+  let panelFilesArr = [];
+  let gctFilesArr = [];
+  const panelInput = document.getElementById('panelFiles');
+  const gctInput = document.getElementById('gctFiles');
 
-      if(!panelFile){ setStatus('请先选择 panel_list.tsv'); return; }
-      if(gctList.length === 0){ setStatus('请至少选择一个 GCT 文件'); return; }
-
-      setStatus('读取 panel 与 GCT 文件中…');
-
-      const panelText = await readFileAsText(panelFile);
-      const { panelIDsOrig, panelKeys } = parsePanel(panelText, stripVersion);
-
-      // 累积所有样本列
-      const columns = [];
-      for(let i=0;i<gctList.length;i++){
-        setStatus(`解析 GCT (${i+1}/${gctList.length}): ${gctList[i].name}`);
-        const txt = await readFileAsText(gctList[i]);
-        const got = parseGCT(txt, stripVersion);
-        columns.push(...got.columns);
-      }
-      if(columns.length === 0){ setStatus('未从任何 GCT 中解析到样本列。'); return; }
-
-      setStatus(`构建矩阵… 面板基因数: ${panelIDsOrig.length}；样本列数: ${columns.length}`);
-
-      const tsv = buildTSV(panelIDsOrig, panelKeys, columns, digits);
-      setDownload(tsv, outName);
-      renderPreview(tsv, 20, Math.min(8, columns.length + 1));
-      setStatus(`完成。行数: ${panelIDsOrig.length}；列数: ${columns.length + 1}（含 ID）。`);
-    }catch(err){
-      console.error(err);
-      setStatus('发生错误：' + (err && err.message ? err.message : String(err)));
-    }
+  panelInput.addEventListener('change', ()=>{
+    dedupAppend(panelFilesArr, panelInput.files);
+    updateFileLists();
+    panelInput.value=''; // allow selecting the same file again
+  });
+  gctInput.addEventListener('change', ()=>{
+    dedupAppend(gctFilesArr, gctInput.files);
+    updateFileLists();
+    gctInput.value='';
   });
 
+  // ====== Run ======
+  document.getElementById('runBtn').addEventListener('click', async () => {
+    const panels = panelFilesArr; const gcts = gctFilesArr;
+    const stripVer = document.getElementById('stripVersion').checked; const digits = Number(document.getElementById('digits').value||6);
+    const ts = fmtTS(document.getElementById('tsFmt').value || 'YYYYMMDD_HHmmss');
+
+    if(panels.length===0){ setStatus('Please select at least 1 panel_list.tsv'); return; }
+    if(gcts.length===0){ setStatus('Please select at least 1 GCT file'); return; }
+
+    setStatus('Reading and parsing files…');
+
+    const usedNames = new Set();
+    const columns = [];
+    for(let i=0;i<gcts.length;i++){
+      setStatus(`Parsing GCT (${i+1}/${gcts.length}): ${gcts[i].name}`);
+      const txt = await readFileAsText(gcts[i]);
+      const arr = parseGCTToSeries(txt, gcts[i].name, stripVer, usedNames);
+      columns.push(...arr);
+    }
+    if(columns.length===0){ setStatus('No sample columns parsed from any GCT.'); return; }
+
+    const availableKeys = new Set(); columns.forEach(c => { c.map.forEach((_,k)=>availableKeys.add(k)); });
+
+    const outDiv = document.getElementById('output'); outDiv.innerHTML = '';
+
+    for(let i=0;i<panels.length;i++){
+      const pf = panels[i];
+      const panelTxt = await readFileAsText(pf);
+      let parsed; try{ parsed = parsePanel(panelTxt, stripVer); } catch(e){
+        const errCard = document.createElement('div'); errCard.className='out-card'; errCard.innerHTML = `<div class=\"warnbox\">Failed to parse panel: ${pf.name} — ${e.message}</div>`; outDiv.appendChild(errCard); continue;
+      }
+      const { panelIDsOrig, panelKeys } = parsed;
+
+      const missing = []; for(let j=0;j<panelKeys.length;j++){ if(!availableKeys.has(panelKeys[j])) missing.push(panelIDsOrig[j]); }
+
+      const tsv = buildTSV(panelIDsOrig, panelKeys, columns, digits);
+      const stem = pf.name.replace(/\.[^.]+$/, '');
+      const fileName = `${stem}_TPM_matrix_${ts}.tsv`;
+
+      const card = document.createElement('div'); card.className='out-card';
+      const head = document.createElement('div'); head.className='out-head';
+      const left = document.createElement('div'); left.innerHTML = `<strong>Output:</strong> <code>${fileName}</code> <span class=\"muted\">(panel genes: ${panelIDsOrig.length}; sample columns: ${columns.length})</span>`;
+      const actions = document.createElement('div'); actions.className='out-actions';
+      const dl = makeDownload(tsv, fileName);
+      const cpAll = document.createElement('button'); cpAll.className='btn'; cpAll.textContent='Copy: full table'; cpAll.addEventListener('click', ()=> copyAll(tsv));
+      const cp = document.createElement('button'); cp.className='btn'; cp.textContent='Copy: all columns except the first (gene)'; cp.addEventListener('click', ()=> copyNoID(tsv));
+      actions.appendChild(dl); actions.appendChild(cpAll); actions.appendChild(cp);
+      head.appendChild(left); head.appendChild(actions); card.appendChild(head);
+
+      if(missing.length>0){
+        const warn = document.createElement('div'); warn.className='warnbox';
+        const sample = missing.slice(0, 12).join(', ');
+        warn.innerHTML = `Warning: ${missing.length} panel gene(s) were not found in any GCT.<br><details><summary>Show first 12 missing IDs</summary><div style=\"margin-top:6px;\">${sample}</div></details>`;
+        card.appendChild(warn);
+      }
+
+      const tbl = renderTable(tsv); card.appendChild(tbl);
+      outDiv.appendChild(card);
+    }
+
+    setStatus(`Done: generated ${panels.length} output file(s).`);
+  });
+
+  // ====== Clear ======
   document.getElementById('clearBtn').addEventListener('click', () => {
-    document.getElementById('panelFile').value = '';
-    document.getElementById('gctFiles').value = '';
-    document.getElementById('status').textContent = '';
-    document.getElementById('download').innerHTML = '';
-    document.getElementById('preview').innerHTML = '';
+    panelFilesArr = []; gctFilesArr = [];
+    document.getElementById('panelFiles').value=''; document.getElementById('gctFiles').value='';
+    updateFileLists();
+    document.getElementById('status').textContent=''; document.getElementById('output').innerHTML='';
   });
   </script>
 </body>
